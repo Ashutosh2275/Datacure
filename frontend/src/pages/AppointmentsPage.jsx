@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Plus, Calendar } from 'lucide-react'
 import { appointmentService } from '../services/api'
 import { Card, Loading, Error, Pagination, EmptyState } from '../components/Common'
 
 function AppointmentsPage() {
+  const navigate = useNavigate()
   const [appointments, setAppointments] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -33,7 +35,7 @@ function AppointmentsPage() {
           <h1 className="text-3xl font-bold">Appointments</h1>
           <p className="text-gray-600">Manage patient appointments</p>
         </div>
-        <button className="btn btn-primary btn-md flex items-center gap-2">
+        <button onClick={() => navigate('/appointments/new')} className="btn btn-primary btn-md flex items-center gap-2">
           <Plus className="w-5 h-5" />
           New Appointment
         </button>
@@ -45,7 +47,7 @@ function AppointmentsPage() {
             icon={Calendar}
             title="No appointments"
             message="Schedule your first appointment"
-            action={<button className="btn btn-primary btn-md">Book Appointment</button>}
+            action={<button onClick={() => navigate('/appointments/new')} className="btn btn-primary btn-md">Book Appointment</button>}
           />
         ) : (
           <div className="overflow-x-auto">
@@ -68,7 +70,7 @@ function AppointmentsPage() {
                     <td className="px-6 py-4">{apt.appointment_date}</td>
                     <td className="px-6 py-4">{apt.appointment_time}</td>
                     <td className="px-6 py-4"><span className="badge badge-info">{apt.status}</span></td>
-                    <td className="px-6 py-4"><button className="text-primary-600 text-sm font-medium">View</button></td>
+                    <td className="px-6 py-4"><button onClick={() => navigate(`/appointments/${apt.id}`)} className="text-primary-600 text-sm font-medium">View</button></td>
                   </tr>
                 ))}
               </tbody>

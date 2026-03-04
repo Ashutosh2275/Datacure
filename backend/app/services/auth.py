@@ -115,14 +115,14 @@ class AuthenticationService:
         
         try:
             # Generate tokens
-            access_token = JWTHandler.encode_token(
+            access_token, access_jti = JWTHandler.encode_token(
                 user_id=user.id,
                 role=user.role.value,
                 hospital_id=user.hospital_id,
                 token_type='access'
             )
             
-            refresh_token = JWTHandler.encode_token(
+            refresh_token, refresh_jti = JWTHandler.encode_token(
                 user_id=user.id,
                 role=user.role.value,
                 hospital_id=user.hospital_id,
@@ -172,7 +172,7 @@ class AuthenticationService:
             if not user:
                 return False, {'message': 'User not found'}
             
-            access_token = JWTHandler.encode_token(
+            access_token, access_jti = JWTHandler.encode_token(
                 user_id=user.id,
                 role=user.role.value,
                 hospital_id=user.hospital_id,

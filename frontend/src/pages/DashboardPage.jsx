@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuthStore, useDashboardStore } from '../store'
 import { adminService } from '../services/api'
 import { Card, Loading, Error } from '../components/Common'
 import { Users, Calendar, DollarSign, TrendingUp } from 'lucide-react'
 
 function DashboardPage() {
+  const navigate = useNavigate()
   const { user } = useAuthStore()
   const [stats, setStats] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -116,10 +118,10 @@ function DashboardPage() {
         {/* Quick Actions */}
         <Card title="Quick Actions">
           <div className="space-y-3">
-            <button className="btn btn-primary btn-md w-full text-left">+ New Patient</button>
-            <button className="btn btn-secondary btn-md w-full text-left">+ New Appointment</button>
-            <button className="btn btn-secondary btn-md w-full text-left">+ Create Invoice</button>
-            <button className="btn btn-secondary btn-md w-full text-left">📊 View Reports</button>
+            <button onClick={() => navigate('/patients')} className="btn btn-primary btn-md w-full text-left">+ New Patient</button>
+            <button onClick={() => navigate('/appointments')} className="btn btn-secondary btn-md w-full text-left">+ New Appointment</button>
+            <button onClick={() => navigate('/billing')} className="btn btn-secondary btn-md w-full text-left">+ Create Invoice</button>
+            <button onClick={() => navigate('/reports')} className="btn btn-secondary btn-md w-full text-left">📊 View Reports</button>
           </div>
         </Card>
       </div>

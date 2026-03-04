@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Plus, Search } from 'lucide-react'
 import { patientService } from '../services/api'
 import { Card, Loading, Error, Pagination, EmptyState } from '../components/Common'
 
 function PatientsPage() {
+  const navigate = useNavigate()
   const [patients, setPatients] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -34,7 +36,7 @@ function PatientsPage() {
           <h1 className="text-3xl font-bold">Patients</h1>
           <p className="text-gray-600">Manage patient records</p>
         </div>
-        <button className="btn btn-primary btn-md flex items-center gap-2">
+        <button onClick={() => navigate('/patients/new')} className="btn btn-primary btn-md flex items-center gap-2">
           <Plus className="w-5 h-5" />
           New Patient
         </button>
@@ -61,7 +63,7 @@ function PatientsPage() {
             title="No patients found"
             message="Start by creating a new patient record"
             action={
-              <button className="btn btn-primary btn-md">
+              <button onClick={() => navigate('/patients/new')} className="btn btn-primary btn-md">
                 Add First Patient
               </button>
             }
@@ -88,7 +90,7 @@ function PatientsPage() {
                       <span className="badge badge-success">Active</span>
                     </td>
                     <td className="px-6 py-4">
-                      <button className="text-primary-600 hover:text-primary-700 text-sm font-medium">
+                      <button onClick={() => navigate(`/patients/${patient.id}`)} className="text-primary-600 hover:text-primary-700 text-sm font-medium">
                         View
                       </button>
                     </td>
