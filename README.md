@@ -15,22 +15,22 @@ DataCure is a comprehensive digital healthcare platform designed for mid-scale h
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                    Frontend (React)                      │
-│            (Firebase Hosting / Firebase RTK)             │
+│                    Frontend (React)                     │
+│            (Firebase Hosting / Firebase RTK)            │
 └────────────────────┬────────────────────────────────────┘
                      │ REST API (JSON)
 ┌────────────────────▼────────────────────────────────────┐
-│         API Gateway (Nginx Reverse Proxy)                │
-│    Rate Limiting • CORS • SSL/TLS • Load Balancing       │
+│         API Gateway (Nginx Reverse Proxy)               │
+│    Rate Limiting • CORS • SSL/TLS • Load Balancing      │
 └────────────────────┬────────────────────────────────────┘
                      │
 ┌────────────────────▼────────────────────────────────────┐
-│              Backend (Flask/Python)                      │
-├──────────────────────────────────────────────────────────┤
-│  Routes Layer       │ Authentication & Authorization     │
-│  ↓                 │ ↓                                   │
+│              Backend (Flask/Python)                     │
+├─────────────────────────────────────────────────────────┤
+│  Routes Layer       │ Authentication & Authorization    │
+│  ↓                 │ ↓                                  │
 │  Services Layer    │ JWT + Role-based Access Control    │
-│  ↓                 │ ↓                                   │
+│  ↓                 │ ↓                                  │
 │  Repository Layer  │ Audit Logging & Compliance         │
 │  ↓                 │                                    │
 │  Database Layer    │                                    │
@@ -40,7 +40,7 @@ DataCure is a comprehensive digital healthcare platform designed for mid-scale h
     ┌──────────┐  ┌──────────┐  ┌──────────┐
     │ Firebase │  │ AI/ML    │  │ Database │
     │ Real-time│  │ Module   │  │PostgreSQL│
-    │ Notif    │  │Scikit-ML │  │  (RDS)  │
+    │ Notif    │  │Scikit-ML │  │  (RDS)   │
     └──────────┘  └──────────┘  └──────────┘
 ```
 
@@ -397,8 +397,7 @@ This project is proprietary and confidential. Unauthorized copying is prohibited
 ## 📧 Support
 
 For issues and support:
-- Email: support@datacure.com
-- Documentation: https://docs.datacure.com
+- Email: ashutoshmishra2275@gmail.com
 - Issues: GitHub Issues
 
 ---
