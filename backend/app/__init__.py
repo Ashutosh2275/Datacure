@@ -1,11 +1,11 @@
 """
 Flask application factory and initialization.
 """
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from flask_cors import CORS
 
 from app.config import get_config
-from app.extensions import db, ma, cors, init_extensions
+from app.extensions import db, ma, init_extensions
 from app.utils import setup_logging, get_logger, api_error_handler, APIError
 
 
@@ -34,8 +34,44 @@ def create_app(config_class=None):
     setup_logging(app)
     logger.info(f"Starting DataCure application in {app.config['FLASK_ENV']} mode")
     
-    # Initialize extensions
+    # Initialize extensions (DB, Marshmallow)
     init_extensions(app)
+    
+    # Initialize CORS
+    cors_origins = app.config.get('CORS_ORIGINS', ['http://localhost:3000'])
+    if isinstance(cors_origins, str):
+        cors_origins = [origin.strip() for origin in cors_origins.split(',')]
+    
+    logger.info(f"Initializing CORS with origins: {cors_origins}")
+    
+    CORS(app, 
+         origins=cors_origins,
+         allow_headers=['Content-Type', 'Authorization', 'X-Requested-With'],
+         methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS', 'HEAD'],
+         supports_credentials=True,
+         expose_headers=['Content-Range', 'X-Content-Range'],
+         max_age=3600)
+    
+    # Manual CORS header handler as backup
+    @app.before_request
+    def handle_preflight():
+        origin = request.headers.get('Origin', 'NO_ORIGIN_HEADER')
+        logger.info(f"CORS: Origin={origin}, Method={request.method}, Path={request.path}")
+        logger.info(f"Allowed origins: {cors_origins}")
+        
+        if request.method == "OPTIONS":
+            logger.info(f"Handling OPTIONS request from origin: {origin}")
+            # Always allow CORS for localhost development
+            if 'localhost' in str(origin).lower() or origin in cors_origins:
+                response = jsonify({})
+                response.status_code = 200
+                response.headers['Access-Control-Allow-Origin'] = origin
+                response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD'
+                response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With'
+                response.headers['Access-Control-Max-Age'] = '3600'
+                response.headers['Access-Control-Allow-Credentials'] = 'true'
+                logger.info(f"CORS headers added for origin: {origin}")
+                return response
     
     # Register error handlers
     @app.errorhandler(APIError)

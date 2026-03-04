@@ -6,9 +6,9 @@ from flask import Blueprint, request
 from datetime import datetime
 from app.utils.errors import APIResponse
 from app.utils.auth import token_required, role_required
-from app.repositories import AuditLogRepository
+from app.models import AuditLog
 
-audit_bp = Blueprint('audit', __name__, url_prefix='/api/v1/audit')
+audit_bp = Blueprint('audit', __name__)
 
 
 @audit_bp.route('/logs', methods=['GET'])
@@ -29,35 +29,32 @@ def list_audit_logs():
         end_date = request.args.get('end_date')
         
         # Build filter conditions
-        filters = {'hospital_id': hospital_id}
+        query = AuditLog.query.filter_by(hospital_id=hospital_id)
         if user_id:
-            filters['user_id'] = user_id
+            query = query.filter_by(user_id=user_id)
         if action:
-            filters['action'] = action
+            query = query.filter_by(action=action)
         if resource_type:
-            filters['resource_type'] = resource_type
+            query = query.filter_by(resource_type=resource_type)
             
         # Query audit logs
-        query = AuditLogRepository.filter(**filters)
         total = query.count()
         
         # Apply pagination
-        logs = query.limit(limit).offset((page - 1) * limit).all()
+        logs = query.order_by(AuditLog.created_at.desc()).limit(limit).offset((page - 1) * limit).all()
         
         logs_data = [
             {
                 'id': log.id,
                 'user_id': log.user_id,
-                'user_name': log.user.name if log.user else 'Unknown',
                 'action': log.action,
                 'resource_type': log.resource_type,
                 'resource_id': log.resource_id,
-                'description': log.description,
-                'old_values': log.old_values or {},
-                'new_values': log.new_values or {},
+                'old_value': log.old_value or {},
+                'new_value': log.new_value or {},
                 'ip_address': log.ip_address,
                 'user_agent': log.user_agent,
-                'timestamp': log.timestamp.isoformat() if log.timestamp else None,
+                'timestamp': log.created_at.isoformat() if log.created_at else None,
                 'status': log.status
             }
             for log in logs
@@ -86,28 +83,23 @@ def get_audit_log(log_id):
     try:
         hospital_id = request.hospital_id
         
-        log = AuditLogRepository.get_by_id(log_id)
+        log = AuditLog.query.get(log_id)
         if not log or log.hospital_id != hospital_id:
             return APIResponse.not_found('Audit log not found')
         
         return APIResponse.success({
             'id': log.id,
             'user_id': log.user_id,
-            'user_name': log.user.name if log.user else 'Unknown',
-            'user_role': log.user.role if log.user else None,
             'action': log.action,
             'resource_type': log.resource_type,
             'resource_id': log.resource_id,
-            'resource_name': log.resource_name,
-            'description': log.description,
-            'old_values': log.old_values or {},
-            'new_values': log.new_values or {},
+            'details': log.details,
+            'old_value': log.old_value or {},
+            'new_value': log.new_value or {},
             'ip_address': log.ip_address,
             'user_agent': log.user_agent,
-            'timestamp': log.timestamp.isoformat() if log.timestamp else None,
-            'status': log.status,
-            'request_id': log.request_id,
-            'session_id': log.session_id
+            'timestamp': log.created_at.isoformat() if log.created_at else None,
+            'status': log.status
         })
     except Exception as e:
         return APIResponse.error(str(e), 'AUDIT_GET_ERROR')
@@ -120,15 +112,15 @@ def user_activity_report():
     """Get user activity report."""
     try:
         hospital_id = request.hospital_id
-        user_id = request.args.get('user_id', required=False)
+        user_id = request.args.get('user_id')
         start_date = request.args.get('start_date')
         end_date = request.args.get('end_date')
         
-        filters = {'hospital_id': hospital_id}
+        query = AuditLog.query.filter_by(hospital_id=hospital_id)
         if user_id:
-            filters['user_id'] = user_id
+            query = query.filter_by(user_id=user_id)
             
-        logs = AuditLogRepository.filter(**filters).all()
+        logs = query.all()
         
         # Group by user and count actions
         user_activity = {}
@@ -137,8 +129,6 @@ def user_activity_report():
             if user_key not in user_activity:
                 user_activity[user_key] = {
                     'user_id': user_key,
-                    'user_name': log.user.name if log.user else 'Unknown',
-                    'role': log.user.role if log.user else None,
                     'total_actions': 0,
                     'actions_by_type': {},
                     'last_action': None
@@ -150,8 +140,8 @@ def user_activity_report():
                 user_activity[user_key]['actions_by_type'][action_type] = 0
             user_activity[user_key]['actions_by_type'][action_type] += 1
             
-            if not user_activity[user_key]['last_action'] or log.timestamp > user_activity[user_key]['last_action']:
-                user_activity[user_key]['last_action'] = log.timestamp.isoformat() if log.timestamp else None
+            if not user_activity[user_key]['last_action'] or (log.created_at and log.created_at.isoformat() > user_activity[user_key]['last_action']):
+                user_activity[user_key]['last_action'] = log.created_at.isoformat() if log.created_at else None
         
         return APIResponse.success({
             'report_type': 'user_activity',
@@ -174,7 +164,7 @@ def compliance_report():
     try:
         hospital_id = request.hospital_id
         
-        logs = AuditLogRepository.filter(hospital_id=hospital_id).all()
+        logs = AuditLog.query.filter_by(hospital_id=hospital_id).all()
         
         # Analyze compliance metrics
         failed_logins = len([l for l in logs if l.action == 'login_failed'])
@@ -224,7 +214,7 @@ def data_access_report():
         hospital_id = request.hospital_id
         resource_type = request.args.get('resource_type', 'patient')
         
-        logs = AuditLogRepository.filter(
+        logs = AuditLog.query.filter_by(
             hospital_id=hospital_id,
             resource_type=resource_type
         ).all()
@@ -259,13 +249,13 @@ def export_audit_logs():
         start_date = request.args.get('start_date')
         end_date = request.args.get('end_date')
         
-        logs = AuditLogRepository.filter(hospital_id=hospital_id).all()
+        logs = AuditLog.query.filter_by(hospital_id=hospital_id).all()
         
         if format_type == 'csv':
             # Generate CSV
             csv_content = "ID,User,Action,Resource,Timestamp,Status\n"
             for log in logs:
-                csv_content += f"{log.id},{log.user_id},{log.action},{log.resource_type},{log.timestamp},{log.status}\n"
+                csv_content += f"{log.id},{log.user_id},{log.action},{log.resource_type},{log.created_at},{log.status}\n"
             
             return APIResponse.success({
                 'format': 'csv',
@@ -295,21 +285,21 @@ def search_audit_logs():
         hospital_id = request.hospital_id
         data = request.get_json()
         
-        query_filters = {'hospital_id': hospital_id}
+        query = AuditLog.query.filter_by(hospital_id=hospital_id)
         
         # Build search from request
         if 'user_id' in data:
-            query_filters['user_id'] = data['user_id']
+            query = query.filter_by(user_id=data['user_id'])
         if 'action' in data:
-            query_filters['action'] = data['action']
+            query = query.filter_by(action=data['action'])
         if 'resource_type' in data:
-            query_filters['resource_type'] = data['resource_type']
+            query = query.filter_by(resource_type=data['resource_type'])
         if 'resource_id' in data:
-            query_filters['resource_id'] = data['resource_id']
+            query = query.filter_by(resource_id=data['resource_id'])
         if 'status' in data:
-            query_filters['status'] = data['status']
+            query = query.filter_by(status=data['status'])
         
-        logs = AuditLogRepository.filter(**query_filters).all()
+        logs = query.all()
         
         results = [
             {
@@ -317,13 +307,13 @@ def search_audit_logs():
                 'user_id': log.user_id,
                 'action': log.action,
                 'resource_type': log.resource_type,
-                'timestamp': log.timestamp.isoformat() if log.timestamp else None
+                'timestamp': log.created_at.isoformat() if log.created_at else None
             }
             for log in logs
         ]
         
         return APIResponse.success({
-            'query': query_filters,
+            'query': data,
             'total_results': len(results),
             'results': results
         })
@@ -339,12 +329,12 @@ def audit_summary():
     try:
         hospital_id = request.hospital_id
         
-        logs = AuditLogRepository.filter(hospital_id=hospital_id).all()
+        logs = AuditLog.query.filter_by(hospital_id=hospital_id).all()
         
         # Group by date
         daily_logs = {}
         for log in logs:
-            date_key = log.timestamp.date().isoformat() if log.timestamp else 'unknown'
+            date_key = log.created_at.date().isoformat() if log.created_at else 'unknown'
             if date_key not in daily_logs:
                 daily_logs[date_key] = 0
             daily_logs[date_key] += 1

@@ -327,10 +327,20 @@ def hospital_isolated(f):
         # Try multiple common parameter names
         requested_hospital_id = (
             kwargs.get('hospital_id') or
-            request.args.get('hospital_id') or
-            request.json.get('hospital_id') if request.json else None or
-            getattr(request, 'hospital_id', None)
+            request.args.get('hospital_id')
         )
+        
+        # Only try to read JSON body for non-GET requests
+        if not requested_hospital_id and request.method not in ('GET', 'HEAD', 'OPTIONS', 'DELETE'):
+            try:
+                json_data = request.get_json(silent=True)
+                if json_data and isinstance(json_data, dict):
+                    requested_hospital_id = json_data.get('hospital_id')
+            except Exception:
+                pass
+        
+        if not requested_hospital_id:
+            requested_hospital_id = getattr(request, 'hospital_id', None)
 
         # If no explicit hospital_id requested, use user's hospital (implicit access)
         if not requested_hospital_id:

@@ -4,13 +4,11 @@ Centralizes database, serialization, and other extension setup.
 """
 from flask_sqlalchemy import SQLAlchemy
 from flask_marshmallow import Marshmallow
-from flask_cors import CORS
 from datetime import datetime
 
 # Initialize extensions
 db = SQLAlchemy()
 ma = Marshmallow()
-cors = CORS()
 
 
 def init_extensions(app):
@@ -22,13 +20,6 @@ def init_extensions(app):
     """
     db.init_app(app)
     ma.init_app(app)
-    cors.init_app(
-        app,
-        origins=app.config.get('CORS_ORIGINS', ['http://localhost:3000']),
-        allow_headers=['Content-Type', 'Authorization'],
-        methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-        supports_credentials=True
-    )
     
     # Create upload folders
     import os

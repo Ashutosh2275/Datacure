@@ -110,13 +110,18 @@ class APIResponse:
         
         Args:
             message: Error message
-            status_code: HTTP status code
+            status_code: HTTP status code or error_code string
             error_code: Custom error code
             details: Additional error details
             
         Returns:
             (response_dict, status_code) tuple
         """
+        # Handle case where error_code is passed as second argument
+        if isinstance(status_code, str):
+            error_code = status_code
+            status_code = 500
+        
         response = {
             'success': False,
             'message': message,

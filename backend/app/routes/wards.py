@@ -10,9 +10,9 @@ from app.utils.helpers import Paginator
 from app.services.operations import WardService
 from app.repositories import WardRepository, BedRepository
 from app.schemas import WardListSchema, BedDetailSchema
-from app import db
+from app.extensions import db
 
-wards_bp = Blueprint('wards', __name__, url_prefix='/api/v1/wards')
+wards_bp = Blueprint('wards', __name__)
 
 
 @wards_bp.route('', methods=['GET'])
@@ -21,18 +21,21 @@ wards_bp = Blueprint('wards', __name__, url_prefix='/api/v1/wards')
 def list_wards():
     """List all wards in hospital."""
     try:
-        paginator = Paginator(request.args)
+        page, per_page = Paginator.get_pagination_params()
         ward_type = request.args.get('ward_type')  # icu, general, pediatric
-        
-        wards, total, pages = WardRepository.filter(
-            hospital_id=request.hospital_id,
-            ward_type=ward_type if ward_type else None
-        ).paginate(page=paginator.page, per_page=paginator.per_page)
-        
+
+        from app.models import Ward
+        query = Ward.query.filter_by(hospital_id=request.hospital_id)
+        if ward_type:
+            query = query.filter_by(ward_type=ward_type)
+
+        wards, total = Paginator.paginate_query(query, page, per_page)
+        pages = max(1, (total + per_page - 1) // per_page)
+
         schema = WardListSchema(many=True)
         return APIResponse.success(
             schema.dump(wards),
-            meta={'total': total, 'page': paginator.page, 'per_page': paginator.per_page, 'pages': pages}
+            meta={'total': total, 'page': page, 'per_page': per_page, 'pages': pages}
         )
     except Exception as e:
         return APIResponse.error(str(e), 'LIST_WARDS_ERROR')

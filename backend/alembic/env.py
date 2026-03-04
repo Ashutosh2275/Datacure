@@ -9,6 +9,10 @@ from sqlalchemy import engine_from_config, pool
 from alembic import context
 import os
 import sys
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv(os.path.join(os.path.dirname(os.path.dirname(__file__)), '..', '.env'))
 
 # Add app directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
@@ -67,14 +71,17 @@ def run_migrations_online() -> None:
     and associate a connection with the context.
 
     """
-    # Get configuration from Flask app
-    flask_config = get_config()
-
-    configuration = config.get_section(config.config_ini_section)
-    configuration["sqlalchemy.url"] = os.getenv(
+    # Get database URL from environment or config
+    database_url = os.getenv(
         'DATABASE_URL',
-        flask_config.SQLALCHEMY_DATABASE_URI
+        'postgresql://postgres:password@localhost:5432/datacure_local'
     )
+    
+    # Update alembic config with database URL
+    config.set_main_option('sqlalchemy.url', database_url)
+    
+    configuration = config.get_section(config.config_ini_section)
+    configuration["sqlalchemy.url"] = database_url
 
     connectable = engine_from_config(
         configuration,

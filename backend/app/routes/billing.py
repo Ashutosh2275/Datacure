@@ -10,9 +10,9 @@ from app.utils.helpers import Paginator, QueryFilter
 from app.services.operations import BillingService
 from app.repositories import BillingRepository, PatientRepository
 from app.schemas import BillingListSchema, BillingDetailSchema, BillingCreateSchema
-from app import db
+from app.extensions import db
 
-billing_bp = Blueprint('billing', __name__, url_prefix='/api/v1/billing')
+billing_bp = Blueprint('billing', __name__)
 
 
 @billing_bp.route('/invoices', methods=['GET'])
@@ -22,27 +22,25 @@ billing_bp = Blueprint('billing', __name__, url_prefix='/api/v1/billing')
 def list_invoices():
     """Get invoices with pagination and filters."""
     try:
-        paginator = Paginator(request.args)
+        page, per_page = Paginator.get_pagination_params()
         patient_id = request.args.get('patient_id')
         status = request.args.get('status')  # pending, partial, paid, cancelled
-        start_date = request.args.get('start_date')
-        end_date = request.args.get('end_date')
-        
-        filters = {'hospital_id': request.hospital_id}
+
+        from app.models import Billing
+        query = Billing.query.filter_by(hospital_id=request.hospital_id)
         if patient_id:
-            filters['patient_id'] = patient_id
+            query = query.filter_by(patient_id=patient_id)
         if status:
-            filters['status'] = status
-        
-        invoices, total, pages = BillingRepository.filter(**filters).paginate(
-            page=paginator.page,
-            per_page=paginator.per_page
-        )
-        
+            query = query.filter_by(status=status)
+        query = query.order_by(Billing.invoice_date.desc())
+
+        invoices, total = Paginator.paginate_query(query, page, per_page)
+        pages = max(1, (total + per_page - 1) // per_page)
+
         schema = BillingListSchema(many=True)
         return APIResponse.success(
             schema.dump(invoices),
-            meta={'total': total, 'page': paginator.page, 'per_page': paginator.per_page, 'pages': pages}
+            meta={'total': total, 'page': page, 'per_page': per_page, 'pages': pages}
         )
     except Exception as e:
         return APIResponse.error(str(e), 'LIST_INVOICES_ERROR')

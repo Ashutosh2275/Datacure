@@ -10,9 +10,9 @@ from app.utils.helpers import Paginator
 from app.services.operations import InventoryService
 from app.repositories import MedicineRepository, InventoryRepository
 from app.schemas import MedicineListSchema, InventorySchema
-from app import db
+from app.extensions import db
 
-inventory_bp = Blueprint('inventory', __name__, url_prefix='/api/v1/inventory')
+inventory_bp = Blueprint('inventory', __name__)
 
 
 @inventory_bp.route('/medicines', methods=['GET'])
@@ -22,20 +22,21 @@ inventory_bp = Blueprint('inventory', __name__, url_prefix='/api/v1/inventory')
 def list_medicines():
     """List all medicines in hospital."""
     try:
-        paginator = Paginator(request.args)
+        page, per_page = Paginator.get_pagination_params()
         search = request.args.get('search')
-        
-        medicines, total, pages = InventoryService.search_medicines(
-            hospital_id=request.hospital_id,
-            search_term=search,
-            page=paginator.page,
-            per_page=paginator.per_page
-        )
-        
+
+        from app.models import MedicineInventory, Medicine
+        query = MedicineInventory.query.filter_by(hospital_id=request.hospital_id)
+        if search:
+            query = query.join(Medicine).filter(Medicine.name.ilike(f'%{search}%'))
+
+        medicines, total = Paginator.paginate_query(query, page, per_page)
+        pages = max(1, (total + per_page - 1) // per_page)
+
         schema = MedicineListSchema(many=True)
         return APIResponse.success(
             schema.dump(medicines),
-            meta={'total': total, 'page': paginator.page, 'per_page': paginator.per_page, 'pages': pages}
+            meta={'total': total, 'page': page, 'per_page': per_page, 'pages': pages}
         )
     except Exception as e:
         return APIResponse.error(str(e), 'LIST_MEDICINES_ERROR')

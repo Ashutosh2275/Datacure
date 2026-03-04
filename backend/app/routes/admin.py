@@ -6,13 +6,9 @@ from flask import Blueprint, request
 from datetime import datetime, timedelta
 from app.utils.errors import APIResponse
 from app.utils.auth import token_required, role_required
-from app.services.patient import PatientService
-from app.services.appointment import AppointmentService
-from app.services.operations import BillingService, InventoryService, WardService
-from app.services.ai import AIService
-from app.repositories import PatientRepository, AppointmentRepository, BillingRepository, WardRepository
+from app.models import Patient, Appointment, Billing, Ward
 
-admin_bp = Blueprint('admin', __name__, url_prefix='/api/v1/admin')
+admin_bp = Blueprint('admin', __name__)
 
 
 @admin_bp.route('/dashboard', methods=['GET'])
@@ -24,13 +20,13 @@ def dashboard():
         hospital_id = request.hospital_id
         
         # Get overview metrics
-        total_patients = PatientRepository.count(hospital_id=hospital_id)
-        total_doctors = len([])  # Would query doctors
-        today_appointments = AppointmentRepository.count(
+        total_patients = Patient.query.filter_by(hospital_id=hospital_id).count()
+        total_doctors = 0  # Would query doctors
+        today_appointments = Appointment.query.filter_by(
             hospital_id=hospital_id,
             appointment_date=datetime.now().date()
-        )
-        pending_payments = len(BillingRepository.filter(status='pending').all())
+        ).count()
+        pending_payments = Billing.query.filter_by(hospital_id=hospital_id, status='pending').count()
         
         return APIResponse.success({
             'summary': {
@@ -68,7 +64,7 @@ def patient_kpi():
         hospital_id = request.hospital_id
         
         return APIResponse.success({
-            'total_patients': PatientRepository.count(hospital_id=hospital_id),
+            'total_patients': Patient.query.filter_by(hospital_id=hospital_id).count(),
             'new_patients_today': 0,
             'new_patients_this_month': 0,
             'male_patients': 0,
@@ -90,10 +86,10 @@ def appointment_kpi():
         period = request.args.get('period', 'month')
         hospital_id = request.hospital_id
         
-        total = AppointmentRepository.count(hospital_id=hospital_id)
-        completed = len(AppointmentRepository.filter(status='completed', hospital_id=hospital_id).all())
-        cancelled = len(AppointmentRepository.filter(status='cancelled', hospital_id=hospital_id).all())
-        no_shows = len(AppointmentRepository.filter(status='no_show', hospital_id=hospital_id).all())
+        total = Appointment.query.filter_by(hospital_id=hospital_id).count()
+        completed = Appointment.query.filter_by(status='completed', hospital_id=hospital_id).count()
+        cancelled = Appointment.query.filter_by(status='cancelled', hospital_id=hospital_id).count()
+        no_shows = Appointment.query.filter_by(status='no_show', hospital_id=hospital_id).count()
         
         return APIResponse.success({
             'total_appointments': total,
@@ -121,10 +117,11 @@ def revenue_kpi():
         period = request.args.get('period', 'month')
         hospital_id = request.hospital_id
         
-        invoices = BillingRepository.filter(hospital_id=hospital_id).all()
-        total_revenue = sum(float(inv.total_amount) for inv in invoices)
-        paid_amount = sum(float(inv.amount_paid) for inv in invoices)
-        pending_amount = sum(float(inv.balance_due) for inv in invoices)
+        invoices = Billing.query.filter_by(hospital_id=hospital_id).all()
+        total_revenue = sum(float(inv.total_amount or 0) for inv in invoices)
+        paid_invoices = [inv for inv in invoices if str(inv.status) == 'paid' or (hasattr(inv.status, 'value') and inv.status.value == 'paid')]
+        paid_amount = sum(float(inv.total_amount or 0) for inv in paid_invoices)
+        pending_amount = total_revenue - paid_amount
         
         return APIResponse.success({
             'total_revenue': total_revenue,
@@ -149,7 +146,7 @@ def occupancy_kpi():
     try:
         hospital_id = request.hospital_id
         
-        wards = WardRepository.filter(hospital_id=hospital_id).all()
+        wards = Ward.query.filter_by(hospital_id=hospital_id).all()
         total_beds = sum(w.total_beds for w in wards)
         occupied_beds = sum(w.total_beds - w.available_beds for w in wards)
         

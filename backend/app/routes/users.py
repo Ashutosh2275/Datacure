@@ -10,7 +10,7 @@ from app.services.auth import UserManagementService
 from app.repositories import UserRepository, DoctorRepository, HospitalRepository
 from app.schemas import UserListSchema, UserDetailSchema, UserUpdateSchema
 
-users_bp = Blueprint('users', __name__, url_prefix='/api/v1/users')
+users_bp = Blueprint('users', __name__)
 
 
 @users_bp.route('', methods=['GET'])
@@ -19,32 +19,30 @@ users_bp = Blueprint('users', __name__, url_prefix='/api/v1/users')
 def list_users():
     """Get all users with pagination and filters."""
     try:
-        paginator = Paginator(request.args)
+        page, per_page = Paginator.get_pagination_params()
         role = request.args.get('role')
         is_active = request.args.get('is_active', type=lambda v: v.lower() == 'true' if v else None)
-        
-        query_filter = QueryFilter()
+
+        from app.models import User
+        query = User.query
         if role:
-            query_filter.add_filter('role', role)
+            query = query.filter_by(role=role)
         if is_active is not None:
-            query_filter.add_filter('is_active', is_active)
-        
-        users, total, pages = UserRepository.paginate(
-            page=paginator.page,
-            per_page=paginator.per_page,
-            filters=query_filter.to_dict() if query_filter else {}
-        )
-        
+            query = query.filter_by(is_active=is_active)
+
+        users, total = Paginator.paginate_query(query, page, per_page)
+        pages = max(1, (total + per_page - 1) // per_page)
+
         schema = UserListSchema(many=True)
         return APIResponse.success(
             schema.dump(users),
             meta={
                 'total': total,
-                'page': paginator.page,
-                'per_page': paginator.per_page,
+                'page': page,
+                'per_page': per_page,
                 'pages': pages,
-                'has_next': paginator.page < pages,
-                'has_prev': paginator.page > 1
+                'has_next': page < pages,
+                'has_prev': page > 1
             }
         )
     except Exception as e:
