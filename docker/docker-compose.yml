@@ -1,0 +1,85 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: datacure_postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: datacure_local
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - datacure_network
+
+  # Redis Cache (Optional but recommended)
+  redis:
+    image: redis:7-alpine
+    container_name: datacure_redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - datacure_network
+
+  # Flask Backend API
+  backend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: datacure_backend
+    environment:
+      FLASK_ENV: development
+      DATABASE_URL: postgresql://postgres:password@postgres:5432/datacure_local
+      REDIS_URL: redis://redis:6379/0
+      SECRET_KEY: dev-secret-key-${RANDOM}
+      DEBUG: "True"
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./backend:/app
+      - ./backend/uploads:/app/uploads
+      - ./backend/logs:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: flask run --host=0.0.0.0
+    networks:
+      - datacure_network
+
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:latest
+    container_name: datacure_nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./docker/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - backend
+    networks:
+      - datacure_network
+
+volumes:
+  postgres_data:
+
+networks:
+  datacure_network:
+    driver: bridge
